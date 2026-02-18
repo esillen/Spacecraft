@@ -5,6 +5,9 @@ import { createInputState, setupInputListeners, pressedKey, pressedStart, presse
 import { createTitleRows, updateTitleRows, createLevelCards, updateLevelCards, updateThrusterBars } from "./ui.js";
 import { renderFrame } from "./render.js";
 
+const BASE_TOTAL_THRUST_UNITS = 4;
+const THRUST_FORCE_PER_UNIT = 185;
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -151,8 +154,9 @@ function configureThrusters(playerCount) {
   ui.thrusterBars.innerHTML = "";
   game.thrusterBars = [];
   const xPositions = thrusterLayout(playerCount, 56);
+  const powerWeights = buildThrusterPowerWeights(xPositions);
   for (let i = 0; i < playerCount; i += 1) {
-    game.thrusters.push({ localX: xPositions[i], power: 0, flame: 0 });
+    game.thrusters.push({ localX: xPositions[i], maxPower: powerWeights[i], power: 0, flame: 0 });
     const bar = document.createElement("div");
     bar.className = "thruster-bar";
     const fill = document.createElement("div");
@@ -166,7 +170,6 @@ function configureThrusters(playerCount) {
 function updateGameplay(dt, pads) {
   const level = levels[game.selectedLevel];
   const c = game.craft;
-  const thrustForce = 33;
   const damping = 0.997;
 
   let fx = level.wind * 0.8;
@@ -177,11 +180,13 @@ function updateGameplay(dt, pads) {
     const playerIndex = game.selectedPlayers[i];
     const pressed = isPlayerHeld(input, keyboardKeys, playerIndex, pads);
     const thruster = game.thrusters[i];
-    thruster.power = pressed ? 1 : 0;
-    const targetFlame = pressed ? 0.9 + Math.random() * 0.35 : 0;
+    const powerScale = thruster.maxPower / (BASE_TOTAL_THRUST_UNITS / 2);
+    thruster.power = pressed ? powerScale : 0;
+    const targetFlame = pressed ? (0.75 + powerScale * 0.7 + Math.random() * 0.2) : 0;
     thruster.flame += (targetFlame - thruster.flame) * 0.23;
 
     if (pressed) {
+      const thrustForce = THRUST_FORCE_PER_UNIT * thruster.maxPower;
       const angle = c.angle;
       const tx = Math.sin(angle) * thrustForce;
       const ty = -Math.cos(angle) * thrustForce;
@@ -193,7 +198,7 @@ function updateGameplay(dt, pads) {
       const ry = thruster.localX * Math.sin(angle) + localY * Math.cos(angle);
       torque += rx * ty - ry * tx;
 
-      spawnExhaust(c, thruster.localX, localY);
+      spawnExhaust(c, thruster.localX, localY, powerScale);
     }
   }
 
@@ -303,20 +308,57 @@ function updateRagdolls(dt) {
   updateParticles(dt);
 }
 
-function spawnExhaust(c, localX, localY) {
+function spawnExhaust(c, localX, localY, powerScale = 1) {
   const angle = c.angle;
   const x = c.x + localX * Math.cos(angle) - localY * Math.sin(angle);
   const y = c.y + localX * Math.sin(angle) + localY * Math.cos(angle);
   const dir = angle + Math.PI;
+  const speed = 90 + powerScale * 95;
   game.particles.push({
     x,
     y,
-    vx: Math.cos(dir) * (110 + Math.random() * 60) + c.vx * 0.3,
-    vy: Math.sin(dir) * (110 + Math.random() * 60) + c.vy * 0.3,
+    vx: Math.cos(dir) * (speed + Math.random() * 50) + c.vx * 0.3,
+    vy: Math.sin(dir) * (speed + Math.random() * 50) + c.vy * 0.3,
     life: 0.55 + Math.random() * 0.35,
-    size: 2 + Math.random() * 2.4,
+    size: 1.4 + powerScale * 1.8 + Math.random() * 1.6,
     color: Math.random() > 0.45 ? "#ffb34d" : "#ff5e6f"
   });
+}
+
+function buildThrusterPowerWeights(xPositions) {
+  const n = xPositions.length;
+  if (n === 0) return [];
+  if (n % 2 === 0) {
+    const each = BASE_TOTAL_THRUST_UNITS / n;
+    return xPositions.map(() => each);
+  }
+
+  const weights = Array(n).fill(0);
+  const left = [];
+  const right = [];
+  const center = [];
+  for (let i = 0; i < n; i += 1) {
+    if (xPositions[i] < -0.001) left.push(i);
+    else if (xPositions[i] > 0.001) right.push(i);
+    else center.push(i);
+  }
+
+  const halfTotal = BASE_TOTAL_THRUST_UNITS * 0.5;
+  const leftEach = left.length > 0 ? halfTotal / left.length : 0;
+  const rightEach = right.length > 0 ? halfTotal / right.length : 0;
+  for (const i of left) weights[i] = leftEach;
+  for (const i of right) weights[i] = rightEach;
+
+  const assigned = leftEach * left.length + rightEach * right.length;
+  const remaining = BASE_TOTAL_THRUST_UNITS - assigned;
+  if (center.length > 0) {
+    const centerEach = remaining / center.length;
+    for (const i of center) weights[i] = centerEach;
+  } else if (Math.abs(remaining) > 1e-6) {
+    weights[0] += remaining;
+  }
+
+  return weights;
 }
 
 function spawnBurst(x, y, count, color) {
