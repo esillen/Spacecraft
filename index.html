@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thruster Crew</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="overlay">
+    <div id="titleScreen" class="screen">
+      <h1>THRUSTER CREW</h1>
+      <p class="subtitle">2-8 pilots, one spacecraft, one mission.</p>
+      <div id="playerList"></div>
+      <p class="hint">Player buttons: A / S / D / F / J / K / L / ;</p>
+      <p class="hint">Controllers: Left/Right bumper (up to 4 pads)</p>
+      <p class="hint">When ready, press <strong>Space</strong> or <strong>Enter</strong> (or controller Start)</p>
+    </div>
+
+    <div id="levelSelectScreen" class="screen hidden">
+      <h2>LEVEL SELECT</h2>
+      <p id="progressText"></p>
+      <div id="levelCards"></div>
+      <p class="hint">Use Left/Right to choose. Press Space/Enter/Start to launch.</p>
+      <p class="hint">Press R to return to title.</p>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="hudTop">
+        <span id="hudLevel"></span>
+        <span id="hudStatus"></span>
+      </div>
+      <div id="thrusterBars"></div>
+    </div>
+
+    <div id="endScreen" class="screen hidden">
+      <h2 id="endTitle"></h2>
+      <p id="endText"></p>
+      <p class="hint">Press Space/Enter/Start</p>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
