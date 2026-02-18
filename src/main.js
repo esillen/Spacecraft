@@ -4,9 +4,19 @@ import { clamp, thrusterLayout, canLand, hitObstacle, touchesTop, touchesPlatfor
 import { createInputState, setupInputListeners, pressedKey, pressedStart, pressedPadNav, isPlayerHeld, playerPressedThisFrame, storePrevInput } from "./input.js";
 import { createTitleRows, updateTitleRows, createLevelCards, updateLevelCards, updateThrusterBars } from "./ui.js";
 import { renderFrame } from "./render.js";
-
-const BASE_TOTAL_THRUST_UNITS = 4;
-const THRUST_FORCE_PER_UNIT = 185;
+import {
+  BASE_TOTAL_THRUST_UNITS,
+  THRUST_FORCE_PER_UNIT,
+  CRAFT_MASS,
+  CRAFT_MOMENT_OF_INERTIA,
+  GRAVITY_SCALE,
+  LINEAR_DAMPING,
+  ANGULAR_DAMPING,
+  CRASH_MAX_VX,
+  CRASH_MAX_VY,
+  CRASH_MAX_ANGLE,
+  CRASH_MAX_ANGULAR_V
+} from "./GAMEPLAY_CONSTANTS.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -170,10 +180,9 @@ function configureThrusters(playerCount) {
 function updateGameplay(dt, pads) {
   const level = levels[game.selectedLevel];
   const c = game.craft;
-  const damping = 0.997;
 
   let fx = level.wind * 0.8;
-  let fy = level.gravity * 25;
+  let fy = level.gravity * 25 * GRAVITY_SCALE;
   let torque = 0;
 
   for (let i = 0; i < game.selectedPlayers.length; i += 1) {
@@ -202,14 +211,12 @@ function updateGameplay(dt, pads) {
     }
   }
 
-  const mass = 1.5;
-  const moi = 2400;
-  c.vx += (fx / mass) * dt;
-  c.vy += (fy / mass) * dt;
-  c.va += (torque / moi) * dt;
-  c.vx *= damping;
-  c.vy *= damping;
-  c.va *= 0.994;
+  c.vx += (fx / CRAFT_MASS) * dt;
+  c.vy += (fy / CRAFT_MASS) * dt;
+  c.va += (torque / CRAFT_MOMENT_OF_INERTIA) * dt;
+  c.vx *= LINEAR_DAMPING;
+  c.vy *= LINEAR_DAMPING;
+  c.va *= ANGULAR_DAMPING;
   c.x += c.vx * dt;
   c.y += c.vy * dt;
   c.angle += c.va * dt;
@@ -230,19 +237,22 @@ function updateGameplay(dt, pads) {
     return;
   }
 
-  if (touchesTop(c, level.start) || touchesTop(c, level.goal)) {
-    if (touchesTop(c, level.goal) && canLand(c)) {
+  const hitStartTop = touchesTop(c, level.start);
+  const hitGoalTop = touchesTop(c, level.goal);
+  if (hitStartTop || hitGoalTop) {
+    if (hitGoalTop && canLand(c)) {
       completeLevel();
       return;
     }
-    if (!canLand(c)) {
+    if (isHardLandingImpact(c)) {
       crash();
       return;
     }
-    c.vy *= -0.08;
-    c.vx *= 0.7;
-    c.va *= 0.6;
-    c.y = Math.min(c.y, Math.min(level.start.y, level.goal.y) - c.r + 2);
+    c.vy = -Math.min(26, Math.abs(c.vy) * 0.22 + 6);
+    c.vx *= 0.82;
+    c.va *= 0.72;
+    const topY = hitGoalTop ? level.goal.y : level.start.y;
+    c.y = Math.min(c.y, topY - c.r + 2);
   }
 }
 
@@ -359,6 +369,10 @@ function buildThrusterPowerWeights(xPositions) {
   }
 
   return weights;
+}
+
+function isHardLandingImpact(c) {
+  return Math.abs(c.vx) > CRASH_MAX_VX || Math.abs(c.vy) > CRASH_MAX_VY || Math.abs(c.angle) > CRASH_MAX_ANGLE || Math.abs(c.va) > CRASH_MAX_ANGULAR_V;
 }
 
 function spawnBurst(x, y, count, color) {

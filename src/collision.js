@@ -1,3 +1,10 @@
+import {
+  LANDING_MAX_VX,
+  LANDING_MAX_VY,
+  LANDING_MAX_ANGLE,
+  LANDING_MAX_ANGULAR_V
+} from "./GAMEPLAY_CONSTANTS.js";
+
 export function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
@@ -26,7 +33,7 @@ export function thrusterLayout(count, spread) {
 }
 
 export function canLand(c) {
-  return Math.abs(c.vx) < 65 && Math.abs(c.vy) < 80 && Math.abs(c.angle) < 0.36 && Math.abs(c.va) < 1.2;
+  return Math.abs(c.vx) < LANDING_MAX_VX && Math.abs(c.vy) < LANDING_MAX_VY && Math.abs(c.angle) < LANDING_MAX_ANGLE && Math.abs(c.va) < LANDING_MAX_ANGULAR_V;
 }
 
 export function hitObstacle(c, obstacles) {
