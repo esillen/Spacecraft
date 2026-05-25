@@ -29,7 +29,10 @@ export function thrusterLayout(count, spread) {
   for (let i = 0; i < rightN; i += 1) {
     out.push(spread * (0.06 + (i / Math.max(1, rightN - 1)) * 0.86));
   }
-  return out;
+
+  // Keep odd-player asymmetry but center the whole cluster on the craft.
+  const mean = out.reduce((sum, v) => sum + v, 0) / out.length;
+  return out.map((v) => v - mean);
 }
 
 export function canLand(c) {
